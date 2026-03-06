@@ -1,0 +1,142 @@
+<html>
+<head>
+  <meta http-equiv="x-ua-compatible" content="IE=9" />
+  <meta charset="utf-8" />
+  <title>PPT 批量转 PDF (Windows 单文件版)</title>
+  <HTA:APPLICATION
+    APPLICATIONNAME="PPT2PDF"
+    BORDER="thin"
+    CAPTION="yes"
+    SHOWINTASKBAR="yes"
+    SINGLEINSTANCE="yes"
+    WINDOWSTATE="normal"
+    SCROLL="no"
+  />
+  <style>
+    body { font-family: "Microsoft YaHei", Arial, sans-serif; margin: 20px; background: #f6f8ff; }
+    .card { background: #fff; border-radius: 10px; padding: 18px; box-shadow: 0 6px 18px rgba(0,0,0,.1); }
+    h2 { margin-top: 0; }
+    .row { margin: 10px 0; }
+    input[type=text] { width: 80%; padding: 8px; }
+    button { padding: 8px 14px; margin-right: 8px; background: #1d4ed8; color: #fff; border: 0; border-radius: 6px; cursor: pointer; }
+    button.secondary { background: #4b5563; }
+    #log { margin-top: 12px; width: 100%; height: 220px; font-family: Consolas, monospace; }
+    .hint { color: #374151; font-size: 13px; }
+  </style>
+  <script language="javascript">
+    function appendLog(msg) {
+      var log = document.getElementById('log');
+      log.value += msg + "\r\n";
+      log.scrollTop = log.scrollHeight;
+    }
+
+    function pickFolder(targetId) {
+      try {
+        var shell = new ActiveXObject("Shell.Application");
+        var folder = shell.BrowseForFolder(0, "请选择文件夹", 0, 17);
+        if (folder != null) {
+          document.getElementById(targetId).value = folder.Self.Path;
+        }
+      } catch (e) {
+        appendLog("选择文件夹失败: " + e.message);
+      }
+    }
+
+    function runConvert() {
+      var inputDir = document.getElementById('inputDir').value;
+      var outputDir = document.getElementById('outputDir').value;
+
+      if (!inputDir) {
+        alert("请先选择包含 PPT/PPTX 的输入文件夹。");
+        return;
+      }
+      if (!outputDir) {
+        alert("请先选择 PDF 输出文件夹。");
+        return;
+      }
+
+      var ps = ''
+        + "$ErrorActionPreference='Stop';"
+        + "$in='" + inputDir.replace(/'/g, "''") + "';"
+        + "$out='" + outputDir.replace(/'/g, "''") + "';"
+        + "if(!(Test-Path $in)){throw '输入目录不存在: '+$in};"
+        + "if(!(Test-Path $out)){New-Item -ItemType Directory -Path $out | Out-Null};"
+        + "$files=Get-ChildItem -Path $in -File | Where-Object { $_.Extension -in '.ppt','.pptx' };"
+        + "if($files.Count -eq 0){throw '输入目录没有 .ppt/.pptx 文件'};"
+        + "$pp=New-Object -ComObject PowerPoint.Application;"
+        + "$pp.Visible = $true;"
+        + "try{"
+        + "foreach($f in $files){"
+        + "  $pdf=Join-Path $out ($f.BaseName + '.pdf');"
+        + "  Write-Output ('转换: ' + $f.FullName + ' -> ' + $pdf);"
+        + "  $pres=$pp.Presentations.Open($f.FullName,$false,$false,$false);"
+        + "  $pres.SaveAs($pdf,32);"
+        + "  $pres.Close();"
+        + "}"
+        + "} finally { $pp.Quit() }"
+        + "Write-Output '全部转换完成';";
+
+      var cmd = 'powershell -NoProfile -ExecutionPolicy Bypass -Command "' + ps.replace(/"/g, '\\"') + '"';
+
+      appendLog("开始转换...");
+      appendLog("输入目录: " + inputDir);
+      appendLog("输出目录: " + outputDir);
+
+      try {
+        var shell = new ActiveXObject("WScript.Shell");
+        var exec = shell.Exec(cmd);
+
+        while (exec.Status == 0) {
+          while (!exec.StdOut.AtEndOfStream) {
+            appendLog(exec.StdOut.ReadLine());
+          }
+          while (!exec.StdErr.AtEndOfStream) {
+            appendLog("[ERR] " + exec.StdErr.ReadLine());
+          }
+        }
+
+        while (!exec.StdOut.AtEndOfStream) {
+          appendLog(exec.StdOut.ReadLine());
+        }
+        while (!exec.StdErr.AtEndOfStream) {
+          appendLog("[ERR] " + exec.StdErr.ReadLine());
+        }
+
+        appendLog("完成，退出码: " + exec.ExitCode);
+        if (exec.ExitCode === 0) {
+          alert("转换完成！PDF 已输出到: " + outputDir);
+        } else {
+          alert("转换失败，请查看日志。");
+        }
+      } catch (e) {
+        appendLog("运行失败: " + e.message);
+        alert("运行失败: " + e.message);
+      }
+    }
+  </script>
+</head>
+<body>
+  <div class="card">
+    <h2>PPT 批量转 PDF（Windows 单文件版）</h2>
+    <div class="hint">无需 Python。请直接双击本文件（.hta）运行。要求：Windows + 已安装 Microsoft PowerPoint。</div>
+
+    <div class="row">
+      <label>输入文件夹（包含 .ppt/.pptx）：</label><br />
+      <input type="text" id="inputDir" />
+      <button class="secondary" onclick="pickFolder('inputDir')">选择</button>
+    </div>
+
+    <div class="row">
+      <label>输出文件夹（保存 PDF）：</label><br />
+      <input type="text" id="outputDir" />
+      <button class="secondary" onclick="pickFolder('outputDir')">选择</button>
+    </div>
+
+    <div class="row">
+      <button onclick="runConvert()">开始批量转换</button>
+    </div>
+
+    <textarea id="log" readonly></textarea>
+  </div>
+</body>
+</html>

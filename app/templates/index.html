@@ -1,0 +1,30 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>PPT 批量转 PDF</title>
+    <link rel="stylesheet" href="/static/style.css" />
+  </head>
+  <body>
+    <main class="container">
+      <h1>PPT 批量转 PDF</h1>
+      <p class="hint">支持一次上传多个 .ppt / .pptx 文件，转换完成后自动下载 ZIP。</p>
+
+      <form id="convert-form">
+        <label class="upload-box" for="files">
+          <input id="files" name="files" type="file" accept=".ppt,.pptx" multiple required />
+          <span>点击选择文件，或拖拽文件到这里</span>
+        </label>
+
+        <ul id="file-list"></ul>
+
+        <button id="submit-btn" type="submit">开始转换</button>
+      </form>
+
+      <p id="status" role="status"></p>
+    </main>
+
+    <script src="/static/app.js"></script>
+  </body>
+</html>
